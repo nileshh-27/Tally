@@ -1,0 +1,22 @@
+{
+  "name": "focusforge",
+  "version": "1.0.0",
+  "license": "MIT",
+  "scripts": {
+    "start": "npm run dev -w @workspace/focusforge",
+    "preinstall": "node -e \"console.log('preinstall hook bypassed on Windows')\"",
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "tsc --build && npm run typecheck --workspaces --if-present"
+  },
+  "private": true,
+  "workspaces": [
+    "artifacts/focusforge"
+  ],
+  "dependencies": {
+    "firebase": "^12.17.1"
+  },
+  "devDependencies": {
+    "prettier": "^3.9.6",
+    "typescript": "~5.9.3"
+  }
+}
