@@ -4,16 +4,14 @@ import { Task } from './tasks';
  * Creates an event in the user's primary Google Calendar.
  * Requires the `google_calendar_token` in localStorage, populated during sign-in.
  */
-export async function syncTaskToCalendar(task: Omit<Task, 'id' | 'actualActiveSeconds' | 'status' | 'createdAt'>) {
+export async function syncTaskToCalendar(task: Omit<Task, 'id' | 'actualActiveSeconds' | 'status' | 'createdAt'>): Promise<boolean | 'token_expired'> {
   const token = localStorage.getItem('google_calendar_token');
   if (!token) {
     console.warn("No Google Calendar token found. User might need to sign in again to grant Calendar permissions.");
     return false;
   }
 
-  // Calculate start and end times for the event (assume starting right now for planned tasks, or tomorrow if it's late)
   const startDate = new Date();
-  
   const endDate = new Date(startDate.getTime() + task.plannedMinutes * 60000);
 
   const event = {
@@ -45,7 +43,10 @@ export async function syncTaskToCalendar(task: Omit<Task, 'id' | 'actualActiveSe
 
     if (!response.ok) {
       if (response.status === 401 || response.status === 403) {
-         console.warn("Google Calendar token expired or missing scope. Please sign out and sign back in.");
+        // M1: Token expired — clear stale token and signal to UI
+        localStorage.removeItem('google_calendar_token');
+        console.warn("Google Calendar token expired. Cleared stale token.");
+        return 'token_expired';
       }
       throw new Error(`Calendar API Error: ${response.statusText}`);
     }

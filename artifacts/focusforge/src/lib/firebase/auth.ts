@@ -10,6 +10,9 @@ import {
 import { auth, googleProvider } from './config';
 import { useState, useEffect } from 'react';
 
+// Configure Google provider once at module level
+googleProvider.addScope?.('https://www.googleapis.com/auth/calendar.events');
+
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -27,10 +30,6 @@ export function useAuth() {
 
 export const loginWithGoogle = async () => {
   try {
-    googleProvider.addScope('https://www.googleapis.com/auth/calendar.events');
-    googleProvider.setCustomParameters({
-      prompt: 'consent'
-    });
     const result = await signInWithPopup(auth, googleProvider);
     
     // Save the OAuth access token to use with Google Calendar API
@@ -47,6 +46,9 @@ export const loginWithGoogle = async () => {
 
 export const logout = async () => {
   try {
+    // Clear sensitive tokens before signing out
+    localStorage.removeItem('google_calendar_token');
+    localStorage.removeItem('focusforge-settings');
     await signOut(auth);
   } catch (error) {
     console.error("Error signing out:", error);

@@ -1,9 +1,41 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // A user can only access documents where the path matches their own UID
-    match /users/{userId}/{document=**} {
+    // Helper: validate a task document
+    function isValidTask() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['id', 'topic', 'subject', 'plannedMinutes', 'status', 'priority', 'createdAt', 'actualActiveSeconds', 'totalPausedDuration'])
+        && data.topic is string && data.topic.size() > 0 && data.topic.size() <= 500
+        && data.subject is string && data.subject.size() > 0
+        && data.plannedMinutes is number && data.plannedMinutes >= 1 && data.plannedMinutes <= 480
+        && data.status in ['planned', 'active', 'paused', 'done', 'revision']
+        && data.priority in ['high', 'medium', 'low']
+        && data.actualActiveSeconds is number && data.actualActiveSeconds >= 0
+        && data.totalPausedDuration is number && data.totalPausedDuration >= 0;
+    }
+
+    match /users/{userId} {
+      // A user can only access their own data
       allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      match /tasks/{taskId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow create: if request.auth != null && request.auth.uid == userId && isValidTask();
+        allow update: if request.auth != null && request.auth.uid == userId;
+        allow delete: if request.auth != null && request.auth.uid == userId;
+      }
+
+      match /events/{eventId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      match /sessions/{sessionId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      match /revisions/{revisionId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
     }
   }
 }

@@ -34,15 +34,49 @@ export const subscribeToTasks = (callback: (tasks: Task[]) => void) => {
   });
 };
 
+const VALID_PRIORITIES = ['high', 'medium', 'low'] as const;
+const MAX_STRING_LENGTH = 500;
+
+function validateTaskData(data: Record<string, any>) {
+  if (!data.topic || typeof data.topic !== 'string' || data.topic.trim().length === 0) {
+    throw new Error('Topic is required');
+  }
+  if (data.topic.length > MAX_STRING_LENGTH) {
+    throw new Error('Topic is too long');
+  }
+  if (!data.subject || typeof data.subject !== 'string' || data.subject.trim().length === 0) {
+    throw new Error('Subject is required');
+  }
+  if (typeof data.plannedMinutes !== 'number' || data.plannedMinutes < 1 || data.plannedMinutes > 480 || !Number.isFinite(data.plannedMinutes)) {
+    throw new Error('Planned minutes must be between 1 and 480');
+  }
+  if (!VALID_PRIORITIES.includes(data.priority)) {
+    throw new Error('Invalid priority');
+  }
+  if (data.goal && typeof data.goal === 'string' && data.goal.length > MAX_STRING_LENGTH) {
+    throw new Error('Goal is too long');
+  }
+}
+
 export const createTask = async (taskData: Omit<Task, 'id' | 'actualActiveSeconds' | 'totalPausedDuration' | 'status' | 'createdAt'>) => {
   if (!auth.currentUser) throw new Error("Not authenticated");
+  
+  validateTaskData(taskData as Record<string, any>);
   
   const taskId = `task-${Date.now()}`;
   const taskRef = doc(db, `users/${auth.currentUser.uid}/tasks`, taskId);
   
+  // Only write known fields — never spread raw input
   await setDoc(taskRef, {
-    ...taskData,
     id: taskId,
+    topic: String(taskData.topic).trim().slice(0, MAX_STRING_LENGTH),
+    subject: String(taskData.subject).trim().slice(0, MAX_STRING_LENGTH),
+    plannedMinutes: Math.round(Math.max(1, Math.min(480, taskData.plannedMinutes))),
+    priority: taskData.priority,
+    goal: String(taskData.goal || '').trim().slice(0, MAX_STRING_LENGTH),
+    deadline: taskData.deadline || new Date().toISOString(),
+    resources: Array.isArray(taskData.resources) ? taskData.resources.slice(0, 20).map(r => String(r).slice(0, 500)) : [],
+    notes: String(taskData.notes || '').slice(0, 2000),
     status: 'planned',
     actualActiveSeconds: 0,
     totalPausedDuration: 0,
